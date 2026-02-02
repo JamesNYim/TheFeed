@@ -1,8 +1,11 @@
+import os
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
 from app.db.session import get_connection
 from psycopg2.extensions import cursor
+import jwt
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -22,8 +25,8 @@ class LoginRequest(BaseModel):
     password: str
 
 class LoginResponse(BaseModel):
-    id: int
-    username: str
+    access_token: str
+    access_type: str = "bearer"
 
 def hash_password(password: str) -> str:
     truncated = password[:72]
@@ -45,6 +48,21 @@ def check_username_exists(cur: cursor, username: str) -> bool:
     if row:
         return True
     return False
+
+def create_access_token(user_id: int) -> str:
+    JWT_SECRET = os.getenv("JWT_SECRET")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+    JWT_EXPIRE_MINS = int(os.getenv("JWT_EXPIRE_MIN"))
+    payload = {
+        "sub": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINS)
+    }
+
+    token = jwt.encode(payload, JWT_SECRET, JWT_ALGORITHM)
+    return {"access_token": token, "token_type": "bearer"}
+
+def decode_access_token(token: str) -> dict:
+    return jwt.decode(token, JWT_SECRET, JWT_ALGORITHM)
     
 # Register Route
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -59,10 +77,10 @@ def register_user(payload: RegisterRequest):
     if check_username_exists(cur, payload.username):
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    password_hash = hash_password(payload.password)
 
     # Creating new user in db
     user = None
+    password_hash = hash_password(payload.password)
     try:
         cur.execute(
             """
@@ -74,14 +92,15 @@ def register_user(payload: RegisterRequest):
         )
 
         user = cur.fetchone()
+    except:
+        raise HTTPException(status_code=500, detail="Failed to get user from database")
     finally:
         conn.commit()
         cur.close()
         conn.close()
+
     if user is None:
         raise HTTPException(status_code=500, detail="User not found")
-
-    
 
     return {"id": user[0], "email":user[1]}
     
@@ -93,7 +112,6 @@ def login_user(payload: LoginRequest):
     cur = conn.cursor()
     user = None
 
-    # - Learning: 
     try:
         # Getting user info
         cur.execute(
@@ -105,6 +123,8 @@ def login_user(payload: LoginRequest):
             (payload.username,)
         )
         user = cur.fetchone()
+    except:
+        raise HTTPException(status_code=500, detail="Failed to get user from database")
     finally:
         cur.close()
         conn.close()
@@ -118,4 +138,4 @@ def login_user(payload: LoginRequest):
         if not verify_password(payload.password, true_password_hash):
             raise HTTPException(status_code=401, detail="Bad Login")
 
-    return {"id": id, "username": username}
+    return create_access_token(id)
