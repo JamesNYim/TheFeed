@@ -4,8 +4,7 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""SELECT current_database()""")
-    print("Connected to DB:", cur.fetchone())
+    # Users Table
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -22,6 +21,23 @@ def init_db():
         """
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS username TEXT UNIQUE NOT NULL
+        """
+    )
+
+    # Posts Table
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS posts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT fk_posts_user
+                FOREIGN KEY (user_id),
+                REFERENCES users(id),
+                ON DELETE CASCADE
+        );
         """
     )
 
