@@ -1,6 +1,6 @@
 import os
 from fastapi import APIRouter, HTTPException, status, Depends
-from fastapy.security import OAuthPasswordBearer
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
 from app.db.session import get_connection
@@ -59,7 +59,7 @@ def create_access_token(user_id: int) -> str:
     JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
     JWT_EXPIRE_MINS = int(os.getenv("JWT_EXPIRE_MIN"))
     payload = {
-        "sub": user_id,
+        "sub": str(user_id),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINS)
     }
 
@@ -91,7 +91,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         cur.execute(
             """
             SELECT id, username, email
-            FROM from users
+            FROM users
             WHERE id = %s
             """,
             (user_id,)
@@ -181,3 +181,9 @@ def login_user(payload: LoginRequest):
             raise HTTPException(status_code=401, detail="Bad Login")
 
     return create_access_token(id)
+
+# Test Route
+@router.get("/me")
+def me(user=Depends(get_current_user)):
+    return user
+
