@@ -81,12 +81,158 @@ def create_post(payload: PostCreate, current_user: User=Depends(get_current_user
         )
 
         post = fetchone_to_dict(cur)
-        conn.commit
+        conn.commit()
         return post
 
     finally:
         cur.close()
         conn.close()
 
+@router.get("", response_model=List[PostOut])
+def list_posts(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+    conn = get_connection()
+    cur = conn.cursor()
 
+    try:
+        cur.execute(
+            """
+            SELECT
+                p.id,
+                p.content,
+                p.created_at,
+                p.updated_at,
+                u.id as user_id,
+                u.username
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (limit, offset),
+        )
+        feed = fetchall_to_dict(cur)
+        return feed
     
+    finally:
+        cur.close()
+        conn.close()
+
+@router.get("/{post_id}", response_model=PostOut)
+def get_post(post_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                p.id,
+                p.content,
+                p.created_at,
+                p.updated_at,
+                u.id as user_id,
+                u.username
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.id = %s
+            """,
+            (post_id,),
+        )
+
+        post = fetchone_to_dict(cur)
+        return post
+
+    finally:
+        cur.close()
+        conn.close()
+
+@router.put("/{post_id}", response_model=PostOut)
+def update_post(post_id: int, payload: PostUpdate, current_user: User = Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        # Ownership check
+        cur.execute(
+            """
+            SELECT user_id FROM posts WHERE id = %s
+            """,
+            (post_id,)
+        )
+
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        post_owner_id = row[0]
+        if (post_owner_id != current_user["id"]):
+            raise HTTPException(status_code=403, detail="Not allowed")
+
+        cur.execute(
+            """
+            UPDATE posts p
+            SET content = %s, updated_at = NOW()
+            WHERE p.id = %s
+            """,
+            (payload.content, post_id)
+        )
+
+        cur.execute(
+            """
+            SELECT
+                p.id,
+                p.content,
+                p.created_at,
+                p.updated_at,
+                u.id as user_id,
+                u.username
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.id = %s
+            """,
+            (post_id,),
+        )
+
+        post = fetchone_to_dict(cur)
+        conn.commit()
+        return post
+    
+    finally:
+        cur.close()
+        conn.close()
+
+@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(post_id: int, current_user: User = Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        # Ownership check
+        cur.execute(
+            """
+            SELECT user_id FROM posts WHERE id = %s
+            """,
+            (post_id,)
+        )
+
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        post_owner_id = row[0]
+        if (post_owner_id != current_user["id"]):
+            raise HTTPException(status_code=403, detail="Not allowed")
+
+        cur.execute(
+            """
+            DELETE FROM posts
+            WHERE id = %s
+            """,
+            (post_id,),
+        )
+        conn.commit()
+        return None
+
+    finally:
+        cur.close()
+        conn.close()
