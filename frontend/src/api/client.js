@@ -51,5 +51,6 @@ export async function api(path, options = {}) {
         err.data = data;
         throw err;
     }
+    print(data);
     return data;
 }
