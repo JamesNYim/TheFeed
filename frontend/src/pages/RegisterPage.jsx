@@ -5,7 +5,6 @@ import { useAuth } from "../auth/AuthContext";
 
 export default function RegisterPage() {
     const nav = useNavigate();
-    const { setSessionFromToken } = useAuth();
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -18,15 +17,9 @@ export default function RegisterPage() {
 
         try {
             const data = await register(email, username, password);
+            console.log(data);
+            nav("/login");
 
-            const token = data.access_token;
-            if (!token) {
-                throw new Error("No Token returned after registering");
-            }
-
-            await setSessionFromToken(token);
-
-            nav("/");
         }
         catch (error) {
             setErr(error.message);
