@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    async function boothAuth() {
+    async function bootAuth() {
         const token = getToken();
 
         if (!token) {
@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
-        boothAuth();
+        bootAuth();
     }, []);
 
     async function setSessionFromToken(token) {
