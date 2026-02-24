@@ -15,7 +15,7 @@ export async function api(path, options = {}) {
         headers.set("Authorization", `Bearer ${token}`);
     }
     else {
-        print("Frontend couldnt find token");
+        console.log("Frontend couldnt find token");
     }
 
     // Make a request
@@ -51,6 +51,5 @@ export async function api(path, options = {}) {
         err.data = data;
         throw err;
     }
-    print(data);
     return data;
 }
