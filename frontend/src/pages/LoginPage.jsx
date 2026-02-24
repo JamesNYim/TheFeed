@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
 
+import RegisterButton from "../components/RegisterButton";
+
 export default function LoginPage() {
     const nav = useNavigate();
     const { setSessionFromToken } = useAuth();
@@ -53,6 +55,7 @@ export default function LoginPage() {
 
             <button type="submit">Login</button>
           </form>
+          <RegisterButton />
         </div>
     );
 
