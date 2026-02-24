@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { register } from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
 
+import LoginButton from "../components/LoginButton";
+
 export default function RegisterPage() {
     const nav = useNavigate();
 
@@ -56,6 +58,7 @@ export default function RegisterPage() {
 
         <button type="submit">Create account</button>
       </form>
+      <LoginButton />
     </div>
     );
 }
