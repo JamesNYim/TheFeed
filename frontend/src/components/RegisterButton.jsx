@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-function RegisterButton({ children = "Login" }) {
+function RegisterButton({ children = "Create account" }) {
     const nav = useNavigate();
 
     return (
