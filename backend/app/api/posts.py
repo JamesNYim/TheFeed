@@ -29,6 +29,10 @@ class User(BaseModel):
     id: int
     username: str
 
+class FeedPage(BaseModel):
+    feed: List[PostOut]
+    next_cursor: Optional[int] = None
+
 # ---- Helpers ----
 
 def fetchone_to_dict(cur) -> Optional[dict]:
@@ -88,8 +92,62 @@ def create_post(payload: PostCreate, current_user: User=Depends(get_current_user
         cur.close()
         conn.close()
 
-@router.get("", response_model=List[PostOut])
-def list_posts(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+@router.get("", response_model=FeedPage)
+def list_posts(limit: int = Query(20, ge=1, le=100), feed_cursor: Optional[int] = Query(None, ge=1)):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        if feed_cursor is None:
+            cur.execute(
+                """
+                SELECT
+                    p.id,
+                    p.content,
+                    p.created_at,
+                    p.updated_at,
+                    u.id as user_id,
+                    u.username
+                FROM posts p
+                JOIN users u ON u.id = p.user_id
+                ORDER by p.id DESC
+                LIMIT %s 
+                """,
+                (limit,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT
+                    p.id,
+                    p.content,
+                    p.created_at,
+                    p.updated_at,
+                    u.id as user_id,
+                    u.username
+                FROM posts p
+                JOIN users u ON u.id = p.user_id
+                WHERE p.id < %s
+                ORDER BY p.id DESC
+                LIMIT %s
+                """,
+                (feed_cursor, limit),
+            )
+        feed = fetchall_to_dict(cur)
+        
+        next_cursor = None
+        if len(feed) == limit:
+            next_cursor = feed[-1]["id"]
+
+        return {"feed": feed, "next_cursor": next_cursor}
+    
+    finally:
+        cur.close()
+        conn.close()
+
+@router.get("/latest", response_model=FeedPage)
+def latest_posts(since_id: int = Query(..., ge=1), limit: int = Query(50, ge=1, le=100)):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -105,14 +163,14 @@ def list_posts(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0
                 u.username
             FROM posts p
             JOIN users u ON u.id = p.user_id
-            ORDER BY created_at DESC
-            LIMIT %s OFFSET %s
+            WHERE p.id > %s
+            ORDER BY p.id DESC
+            LIMIT %s
             """,
-            (limit, offset),
+            (since_id, limit),
         )
         feed = fetchall_to_dict(cur)
         return feed
-    
     finally:
         cur.close()
         conn.close()
