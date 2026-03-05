@@ -1,4 +1,4 @@
-# ADR-000X: Use `id` as Feed Sort Key and Pagination Cursor (Instead of `created_at`)
+# ADR-004: Use `id` as Feed Sort Key and Pagination Cursor (Instead of `created_at`)
 
 Date: 2026-02-26  
 
